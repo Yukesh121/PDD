@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shooting Game with Score and Lives</title>
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+    canvas {
+      display: block;
+    }
+    .difficulty, .scoreboard {
+      position: absolute;
+      z-index: 10;
+      font-family: Arial, sans-serif;
+      font-size: 18px;
+      color: white;
+      padding: 10px;
+    }
+    .difficulty {
+      top: 10px;
+      right: 10px;
+    }
+    .scoreboard {
+      top: 10px;
+      left: 10px;
+    }
+    .difficulty button {
+      margin: 5px;
+      padding: 10px;
+      background-color: #f1f1f1;
+      border: none;
+      cursor: pointer;
+    }
+    .difficulty button.active {
+      background-color: #007BFF;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+
+<div class="difficulty">
+  <button class="easy active">Easy</button>
+  <button class="medium">Medium</button>
+  <button class="hard">Hard</button>
+</div>
+
+<div class="scoreboard">
+  <span id="score">Score: 0</span> | <span id="lives">Lives: 3</span>
+</div>
+
+<canvas id="gameCanvas"></canvas>
+
+<script>
+  const canvas = document.getElementById("gameCanvas");
+  const ctx = canvas.getContext("2d");
+
+  let screenWidth = window.innerWidth;
+  let screenHeight = window.innerHeight;
+  canvas.width = screenWidth;
+  canvas.height = screenHeight;
+
+
+  const background = new Image();
+  background.src = 'Images/Background.jpg'; 
+  const playerImg = new Image();
+  playerImg.src = 'Images/Player.png';  
+
+  let player = {
+    x: screenWidth / 2 - 32,
+    y: screenHeight - 100,
+    width: 64,
+    height: 64,
+    speed: 5,
+    movingLeft: false,
+    movingRight: false
+  };
+
+
+  let bullet = {
+    x: player.x + player.width / 2 - 5,
+    y: player.y,
+    width: 5,
+    height: 20,
+    speed: 10,
+    isFired: false
+  };
+
+ 
+  const enemyImg = new Image();
+  enemyImg.src = 'Images/UFO.png';  
+  let enemies = [];
+  let enemySpeed = 2;
+  let spawnInterval = 2000; 
+
+  let score = 0;
+  let lives = 3;
+
+  function updateScoreboard() {
+    document.getElementById('score').textContent = `Score: ${score}`;
+    document.getElementById('lives').textContent = `Lives: ${lives}`;
+  }
+
+  function spawnEnemy() {
+    const enemy = {
+      x: Math.random() * (screenWidth - 64),
+      y: -64,
+      width: 64,
+      height: 64
+    };
+    enemies.push(enemy);
+  }
+
+  const difficulties = {
+    easy: { speed: 2, interval: 2000 },
+    medium: { speed: 4, interval: 1500 },
+    hard: { speed: 6, interval: 1000 }
+  };
+  let currentDifficulty = difficulties.easy;
+
+  const difficultyButtons = document.querySelectorAll('.difficulty button');
+  difficultyButtons.forEach(button => {
+    button.addEventListener('click', () => {
+      difficultyButtons.forEach(btn => btn.classList.remove('active'));
+      button.classList.add('active');
+
+      if (button.classList.contains('easy')) {
+        currentDifficulty = difficulties.easy;
+      } else if (button.classList.contains('medium')) {
+        currentDifficulty = difficulties.medium;
+      } else if (button.classList.contains('hard')) {
+        currentDifficulty = difficulties.hard;
+      }
+
+      enemySpeed = currentDifficulty.speed;
+      spawnInterval = currentDifficulty.interval;
+    });
+  });
+
+  function updatePlayer() {
+    if (player.movingLeft && player.x > 0) {
+      player.x -= player.speed;
+    }
+    if (player.movingRight && player.x + player.width < screenWidth) {
+      player.x += player.speed;
+    }
+  }
+
+  function updateBullet() {
+    if (bullet.isFired) {
+      bullet.y -= bullet.speed;
+      if (bullet.y < 0) {
+        bullet.isFired = false;
+        bullet.y = player.y;
+      }
+    } else {
+      bullet.x = player.x + player.width / 2 - bullet.width / 2;
+    }
+  }
+
+  function updateEnemies() {
+    enemies.forEach((enemy, index) => {
+      enemy.y += enemySpeed;
+
+      if (
+        bullet.x < enemy.x + enemy.width &&
+        bullet.x + bullet.width > enemy.x &&
+        bullet.y < enemy.y + enemy.height &&
+        bullet.y + bullet.height > enemy.y
+      ) {
+        enemies.splice(index, 1);
+        bullet.isFired = false;
+        bullet.y = player.y;
+
+        score += 10;
+        updateScoreboard();
+      }
+
+      if (enemy.y > screenHeight) {
+        enemies.splice(index, 1);
+        lives -= 1;
+        updateScoreboard();
+
+        if (lives === 0) {
+          alert("Game Over! Final Score: " + score);
+          document.location.reload();
+        }
+      }
+    });
+  }
+
+  function drawBackground() {
+    ctx.drawImage(background, 0, 0, screenWidth, screenHeight);
+  }
+
+  function drawPlayer() {
+    ctx.drawImage(playerImg, player.x, player.y, player.width, player.height);
+  }
+
+  function drawBullet() {
+    if (bullet.isFired) {
+      ctx.fillStyle = "red";
+      ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+    }
+  }
+
+  function drawEnemies() {
+    enemies.forEach(enemy => {
+      ctx.drawImage(enemyImg, enemy.x, enemy.y, enemy.width, enemy.height);
+    });
+  }
+
+  function gameLoop() {
+    ctx.clearRect(0, 0, screenWidth, screenHeight);
+
+    drawBackground();
+    drawPlayer();
+    drawBullet();
+    drawEnemies();
+
+    updatePlayer();
+    updateBullet();
+    updateEnemies();
+
+    requestAnimationFrame(gameLoop);
+  }
+
+  window.addEventListener('keydown', (e) => {
+    if (e.key === "ArrowLeft") player.movingLeft = true;
+    if (e.key === "ArrowRight") player.movingRight = true;
+    if (e.key === " " && !bullet.isFired) {
+      bullet.isFired = true;
+    }
+  });
+
+  window.addEventListener('keyup', (e) => {
+    if (e.key === "ArrowLeft") player.movingLeft = false;
+    if (e.key === "ArrowRight") player.movingRight = false;
+  });
+
+  window.addEventListener('resize', () => {
+    screenWidth = window.innerWidth;
+    screenHeight = window.innerHeight;
+    canvas.width = screenWidth;
+    canvas.height = screenHeight;
+  });
+
+  setInterval(spawnEnemy, spawnInterval);
+
+  gameLoop();
+</script>
+
+</body>
+</html>
